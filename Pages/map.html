@@ -37,10 +37,13 @@
         return;
       }
 
+      var mapColumn = document.querySelector('.map-column');
+      var mapWidth = mapColumn ? Math.min(640, Math.floor(mapColumn.clientWidth)) : 640;
+
       new daum.roughmap.Lander({
         "timestamp" : "1778076921517",
         "key" : "2ordm5m9xhjc",
-        "mapWidth" : "640",
+        "mapWidth" : String(mapWidth),
         "mapHeight" : "360"
       }).render();
     });

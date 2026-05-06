@@ -24,6 +24,8 @@ body{font-family: 'Noto Sans KR', 'Montserrat', Arial, sans-serif;color:#172033;
 /* Hero */
 .hero{background:linear-gradient(180deg, #fbfdff 0%, #f1f6ff 100%);padding:56px 0;border-bottom:1px solid rgba(16,24,72,0.04)}
 .hero .container{display:flex;gap:32px;align-items:center}
+.hero-left{flex:1}
+.hero-right{flex:1;text-align:right}
 .hero h1{color:var(--brand-blue);font-size:36px;margin-bottom:8px}
 .hero p{color:var(--muted);font-size:16px;margin-bottom:16px}
 .hero .hero-img{width:48%;border-radius:12px;box-shadow:var(--card-shadow)}
@@ -38,11 +40,6 @@ body{font-family: 'Noto Sans KR', 'Montserrat', Arial, sans-serif;color:#172033;
 .service-card{background:#fff;padding:18px;border-radius:12px;box-shadow:var(--card-shadow);min-height:110px}
 .service-card h3{margin-bottom:8px;color:var(--brand-blue);font-size:16px}
 .service-card p{color:var(--muted);font-size:14px}
-
-/* Contact form */
-.contact-form input[type="text"],.contact-form input[type="email"],.contact-form textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #e6e9ef;margin-top:6px}
-.contact-form button{background:var(--brand-blue);color:#fff;padding:10px 16px;border:none;border-radius:8px;cursor:pointer}
-.contact-form button:hover{background:var(--brand-blue-600)}
 
 /* Footer */
 .site-footer{background:#0f1724;color:#c9d2e8;padding:28px 0;margin-top:36px}
@@ -69,6 +66,8 @@ a:focus{outline:3px solid rgba(18,18,161,0.12);outline-offset:2px}
   .service-grid{grid-template-columns:repeat(2,1fr)}
   .hero .hero-img{display:none}
   .hero .container{flex-direction:column;align-items:flex-start}
+  .hero-left,
+  .hero-right{flex:unset;width:100%;text-align:left}
   .map-column,
   .guide-column{max-width:100%;flex-basis:100%}
 }
