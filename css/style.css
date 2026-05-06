@@ -1,0 +1,24 @@
+:root{
+  --brand-blue: #1212a1;
+  --gap: 20px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family: 'Noto Sans KR', Arial, sans-serif;color:#222;line-height:1.6}
+.container{max-width:1000px;margin:0 auto;padding:40px 16px}
+.navbar{background:#fff;border-bottom:1px solid #eee}
+.nav-list{display:flex;justify-content:center;gap:24px;list-style:none;padding:8px 0}
+.nav-list a{display:inline-block;padding:4px 8px;height:18px;line-height:18px;color:var(--brand-blue);text-decoration:none;transition:all .18s ease;font-size:12px}
+.nav-list a:hover{height:24px;line-height:24px;font-size:18px}
+.hero{background:#f7f9ff;padding:40px 0}
+.hero h1{color:var(--brand-blue);font-size:32px;margin-bottom:8px}
+.two-col{display:flex;gap:20px;align-items:center}
+.two-col img{max-width:100%;height:auto;border-radius:6px}
+.services{list-style:disc;margin-left:20px;margin-top:12px}
+.site-footer{background:#f3f3f3;padding:16px 0;font-size:14px}
+.footer-content{max-width:1000px;margin:0 auto;text-align:center;line-height:1.4}
+
+/* 연혁 페이지용 간단 스타일 */
+.timeline{background:#0f1a3a;color:#fff;padding:40px 0}
+.timeline .entry{background:#0b224f;padding:16px;margin:12px 0;border-radius:6px}
+
+@media(max-width:800px){.two-col{flex-direction:column}.nav-list{gap:12px}}
