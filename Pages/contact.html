@@ -13,12 +13,30 @@
     <section class="section container">
       <h2>문의하기</h2>
       <p>전화: 063-471-1718</p>
-      <p>이메일: <a href="mailto:info@gohap.co.kr">info@gohap.co.kr</a></p>
+      <p>이메일: <a href="mailto:kjkatusa@hotmail.com">kjkatusa@hotmail.com</a></p>
+      <br>
       <p>업무 시간 내 문의 주시면 빠르게 안내해 드리겠습니다.</p>
+      <p>업무시간: 평일 9:00 - 18:00</p>
+      <br>
+      <p>또는 아래 양식을 통해 문의 내용을 남겨주세요. 최대한 신속히 답변 드리겠습니다.</p>
+      <!-- 게시판 폼: Supabase/SaaS DB 연결 후 사용 -->
+      <section id="board" style="margin-top:18px;">
+        <h3>게시판</h3>
+        <form id="post-form" style="display:flex;flex-direction:column;gap:8px;max-width:640px;">
+          <input id="post-author" type="text" placeholder="이름 (선택)" />
+          <textarea id="post-content" rows="4" placeholder="문의 내용을 입력하세요" required></textarea>
+          <button id="post-submit" type="submit">등록</button>
+        </form>
+
+        <div id="posts-list" style="margin-top:18px;max-width:740px;display:flex;flex-direction:column;gap:12px;"></div>
+      </section>
     </section>
   </main>
 
   <div id="site-footer"></div>
+  <!-- Supabase client (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+  <script src="js/board.js"></script>
   <script src="js/include.js"></script>
 </body>
 </html>
