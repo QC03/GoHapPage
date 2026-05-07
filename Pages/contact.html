@@ -25,10 +25,13 @@
         <form id="post-form" style="display:flex;flex-direction:column;gap:8px;max-width:640px;">
           <input id="post-author" type="text" placeholder="이름 (선택)" />
           <textarea id="post-content" rows="4" placeholder="문의 내용을 입력하세요" required></textarea>
+          <label style="display:flex;align-items:center;gap:8px"><input id="post-secret" type="checkbox"/> 비밀글</label>
+          <input id="post-password" type="password" placeholder="비밀번호 (비밀글일 경우 필수)" style="display:none;" />
           <button id="post-submit" type="submit">등록</button>
         </form>
 
         <div id="posts-list" style="margin-top:18px;max-width:740px;display:flex;flex-direction:column;gap:12px;"></div>
+        <div id="pagination" style="margin-top:12px;display:flex;gap:8px;align-items:center;"></div>
       </section>
     </section>
   </main>

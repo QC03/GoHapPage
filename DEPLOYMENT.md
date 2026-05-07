@@ -1,3 +1,8 @@
+또한 관리자 전용 기능(답글/삭제)을 위해 추가 환경변수 `SUPABASE_ADMIN_TOKEN`을 Vercel에 설정하세요.
+
+`SUPABASE_ADMIN_TOKEN` 값은 임의의 강력한 문자열로 설정하고 절대 공개하지 마세요. 이 토큰은 관리자 UI(로컬)에 입력하여 관리 작업을 수행합니다.
+
+메모: 서버리스 프록시(`api/posts.js`)는 `SUPABASE_SERVICE_ROLE_KEY`와 `SUPABASE_URL`을 사용합니다.
 # 고합상사 홈페이지 배포 가이드
 
 ## 개요

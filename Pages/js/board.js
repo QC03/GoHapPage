@@ -5,21 +5,27 @@
   console.log('[Board] board.js 로드됨');
   const boardContainer = document.getElementById('posts-list');
   const formElement = document.getElementById('post-form');
+  const secretCheckbox = document.getElementById('post-secret');
+  const passwordInput = document.getElementById('post-password');
+  const paginationEl = document.getElementById('pagination');
   
   console.log('[Board] boardContainer:', boardContainer ? 'found' : 'NOT found');
   console.log('[Board] formElement:', formElement ? 'found' : 'NOT found');
 
+  let currentPage = 1;
+
   // 게시글 목록 조회
-  async function loadPosts() {
+  async function loadPosts(page = 1) {
     console.log('[Board] loadPosts 시작');
     if (!boardContainer) {
       console.error('[Board] posts-list 컨테이너 없음');
       return;
     }
-    
+    currentPage = page;
+
     try {
-      console.log('[Board] /api/posts 요청 시작');
-      const response = await fetch('/api/posts', {
+      console.log('[Board] /api/posts?page=' + page + ' 요청 시작');
+      const response = await fetch('/api/posts?page=' + page, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -35,10 +41,34 @@
       const posts = await response.json();
       console.log('[Board] 받은 게시글 수:', posts.length);
       displayPosts(posts || []);
+      // pagination: check next page existence
+      checkHasNext(page);
     } catch (error) {
       boardContainer.innerText = '게시글 로드 실패';
       console.error('[Board] Fetch 에러:', error);
     }
+  }
+
+  async function checkHasNext(page){
+    try{
+      const r = await fetch('/api/posts?page=' + (page+1));
+      if(!r.ok) return renderPagination(false);
+      const data = await r.json();
+      renderPagination(data.length > 0);
+    }catch(e){ renderPagination(false); }
+  }
+
+  function renderPagination(hasNext){
+    if(!paginationEl) return;
+    paginationEl.innerHTML = '';
+    const prevBtn = document.createElement('button'); prevBtn.textContent = '◀ 이전'; prevBtn.disabled = currentPage <= 1;
+    const nextBtn = document.createElement('button'); nextBtn.textContent = '다음 ▶'; nextBtn.disabled = !hasNext;
+    const pageLabel = document.createElement('span'); pageLabel.textContent = `페이지 ${currentPage}`;
+    prevBtn.addEventListener('click', ()=> loadPosts(currentPage-1));
+    nextBtn.addEventListener('click', ()=> loadPosts(currentPage+1));
+    paginationEl.appendChild(prevBtn);
+    paginationEl.appendChild(pageLabel);
+    paginationEl.appendChild(nextBtn);
   }
 
   // XSS 방지 - HTML 이스케이프
@@ -66,14 +96,64 @@
       const author = sanitizeHtml(post.author || '익명');
       const content = sanitizeHtml(post.content || '');
       const createdAt = new Date(post.created_at).toLocaleString('ko-KR');
+      // Header
+      const header = document.createElement('div');
+      header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;';
+      header.innerHTML = `<strong style="color: var(--brand-blue);">${author}</strong><span style="color: var(--muted); font-size: 12px;">${createdAt}</span>`;
+      postEl.appendChild(header);
 
-      postEl.innerHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-          <strong style="color: var(--brand-blue);">${author}</strong>
-          <span style="color: var(--muted); font-size: 12px;">${createdAt}</span>
-        </div>
-        <div style="color: #333; line-height: 1.5; word-wrap: break-word;">${content}</div>
-      `;
+      // Content area
+      const contentArea = document.createElement('div');
+      contentArea.style.cssText = 'color:#333;line-height:1.5;word-wrap:break-word;margin-bottom:8px;';
+
+      if(post.is_secret){
+        contentArea.innerHTML = '<em>비밀글입니다. 보기 버튼을 눌러 비밀번호를 입력하세요.</em> ';
+        const viewBtn = document.createElement('button'); viewBtn.textContent = '보기';
+        viewBtn.addEventListener('click', ()=> verifyAndShow(post.id, contentArea, post));
+        contentArea.appendChild(viewBtn);
+      } else {
+        contentArea.innerHTML = content;
+      }
+
+      postEl.appendChild(contentArea);
+
+      // Reply display
+      if(post.reply_content){
+        const replyEl = document.createElement('div');
+        replyEl.style.cssText = 'margin-top:8px;padding:10px;border-left:3px solid var(--brand-blue);background:#fff7;';
+        if(post.reply_is_secret && !post.is_secret){
+          replyEl.innerHTML = '<em>관리자 전용 비밀댓글</em>';
+        } else {
+          // if post was secret but unlocked, post.reply_content may be available via verify response
+          replyEl.innerHTML = `<strong style="color:var(--brand-blue)">답글</strong><div style="color:var(--muted);margin-top:6px">${sanitizeHtml(post.reply_content)}</div>`;
+        }
+        postEl.appendChild(replyEl);
+      }
+
+      // Admin controls (login via localStorage token)
+      const adminToken = localStorage.getItem('adminToken');
+      if(adminToken){
+        const ctl = document.createElement('div'); ctl.style.cssText='margin-top:8px;display:flex;gap:8px';
+        // Reply form
+        const replyInput = document.createElement('input'); replyInput.placeholder='관리자 답글'; replyInput.style.width='240px';
+        const replySecret = document.createElement('input'); replySecret.type='checkbox';
+        const replySecretLabel = document.createElement('label'); replySecretLabel.appendChild(replySecret); replySecretLabel.append(' 비밀');
+        const replyBtn = document.createElement('button'); replyBtn.textContent='답글 등록';
+        replyBtn.addEventListener('click', async ()=>{
+          const payload = { reply_content: replyInput.value, reply_is_secret: !!replySecret.checked };
+          const r = await fetch('/api/posts/'+post.id+'/reply', { method: 'PATCH', headers: { 'Content-Type':'application/json', 'x-admin-token': adminToken }, body: JSON.stringify(payload) });
+          if(!r.ok) return alert('답글 등록 실패');
+          alert('답글 등록됨'); loadPosts(currentPage);
+        });
+        const delBtn = document.createElement('button'); delBtn.textContent='삭제'; delBtn.addEventListener('click', async ()=>{
+          if(!confirm('정말 삭제할까요?')) return;
+          const r = await fetch('/api/posts/'+post.id, { method: 'DELETE', headers: { 'x-admin-token': adminToken } });
+          if(!r.ok) return alert('삭제 실패');
+          alert('삭제됨'); loadPosts(currentPage);
+        });
+        ctl.appendChild(replyInput); ctl.appendChild(replySecretLabel); ctl.appendChild(replyBtn); ctl.appendChild(delBtn);
+        postEl.appendChild(ctl);
+      }
 
       boardContainer.appendChild(postEl);
     });
@@ -102,6 +182,10 @@
 
     console.log('[Board] 등록할 데이터:', { author, content });
 
+    const isSecret = !!(secretCheckbox && secretCheckbox.checked);
+    const password = passwordInput ? passwordInput.value : '';
+    if(isSecret && !password){ alert('비밀글이면 비밀번호를 입력하세요'); return }
+
     try {
       console.log('[Board] /api/posts POST 요청 시작');
       const response = await fetch('/api/posts', {
@@ -109,7 +193,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           author: author || '익명',
-          content: content
+          content: content,
+          is_secret: isSecret,
+          password: password
         })
       });
 
@@ -140,13 +226,54 @@
     console.error('[Board] 폼을 찾을 수 없어 이벤트 바인딩 실패');
   }
 
+  // secret checkbox show/hide password
+  if(secretCheckbox && passwordInput){
+    secretCheckbox.addEventListener('change', ()=>{
+      passwordInput.style.display = secretCheckbox.checked ? 'block' : 'none';
+    });
+  }
+
+  // verify and show secret content
+  async function verifyAndShow(id, contentArea, post){
+    const pw = prompt('비밀번호를 입력하세요');
+    if(pw === null) return;
+    try{
+      const r = await fetch('/api/posts/' + id + '/verify', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password: pw }) });
+      if(!r.ok){ const e = await r.json().catch(()=>({})); return alert(e.error || '비밀번호가 틀립니다'); }
+      const data = await r.json();
+      contentArea.innerHTML = sanitizeHtml(data.content || '');
+      if(data.reply_content){
+        const replyEl = document.createElement('div'); replyEl.style.cssText='margin-top:8px;padding:10px;border-left:3px solid var(--brand-blue);';
+        replyEl.innerHTML = `<strong style="color:var(--brand-blue)">답글</strong><div style="color:var(--muted);margin-top:6px">${sanitizeHtml(data.reply_content)}</div>`;
+        contentArea.parentElement.appendChild(replyEl);
+      }
+    }catch(err){ console.error(err); alert('검증 중 오류'); }
+  }
+
+  // admin login panel in pagination
+  function renderAdminPanel(){
+    if(!paginationEl) return;
+    let adminWrap = document.getElementById('admin-wrap');
+    if(adminWrap) return;
+    adminWrap = document.createElement('div'); adminWrap.id='admin-wrap'; adminWrap.style.cssText='margin-left:16px;';
+    const btn = document.createElement('button');
+    const token = localStorage.getItem('adminToken');
+    btn.textContent = token ? '관리자 로그아웃' : '관리자 로그인';
+    btn.addEventListener('click', ()=>{
+      if(localStorage.getItem('adminToken')){ localStorage.removeItem('adminToken'); alert('로그아웃됨'); btn.textContent='관리자 로그인'; loadPosts(currentPage); return }
+      const t = prompt('관리자 토큰을 입력하세요'); if(!t) return; localStorage.setItem('adminToken', t); alert('관리자 로그인됨'); btn.textContent='관리자 로그아웃'; loadPosts(currentPage);
+    });
+    adminWrap.appendChild(btn);
+    paginationEl.appendChild(adminWrap);
+  }
+
   // 페이지 로드 완료 후 초기 게시글 로드
   console.log('[Board] 초기 로드 시작, readyState:', document.readyState);
   if (document.readyState === 'loading') {
     console.log('[Board] DOMContentLoaded 이벤트 리스너 추가');
-    document.addEventListener('DOMContentLoaded', loadPosts);
+    document.addEventListener('DOMContentLoaded', ()=>{ loadPosts(); renderAdminPanel(); });
   } else {
     console.log('[Board] 페이지 이미 로드됨, 즉시 loadPosts 호출');
-    loadPosts();
+    loadPosts(); renderAdminPanel();
   }
 })();

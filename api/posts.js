@@ -19,17 +19,70 @@ async function handler(req, res) {
   };
 
   try{
-    if(req.method === 'GET'){
-      const url = `${restBase}?select=id,author,content,created_at&order=created_at.desc`;
+    // Routing: support list with pagination, single post verify, admin reply and delete
+    const urlPath = req.url || req.path || '';
+    // Normalize: remove query
+    const pathname = urlPath.split('?')[0];
+
+    // GET list with pagination: /api/posts?page=1
+    if(req.method === 'GET' && (pathname === '/api/posts' || pathname === '/posts' || pathname === '/')){
+      const page = parseInt((req.query && req.query.page) || (req.query && req.query.p) || 1, 10) || 1;
+      const limit = 5;
+      const offset = (page - 1) * limit;
+      const url = `${restBase}?select=id,author,created_at,is_secret,reply_content,reply_is_secret&order=created_at.desc&limit=${limit}&offset=${offset}`;
       const r = await fetch(url, { headers });
       const data = await r.json();
       return res.status(r.status).json(data);
     }
 
-    if(req.method === 'POST'){
+    // Verify secret post and fetch content: POST /api/posts/:id/verify  { password }
+    if(req.method === 'POST' && pathname.match(/^\/api\/posts\/\d+\/verify$/)){
+      const id = pathname.split('/')[3];
+      const body = req.body || {};
+      const pw = body.password || '';
+      // fetch post
+      const r = await fetch(`${restBase}?select=id,author,content,is_secret,password_hash,reply_content,reply_is_secret&id=eq.${id}`, { headers });
+      const items = await r.json();
+      const post = (items && items[0]) || null;
+      if(!post) return res.status(404).json({ error: 'not found' });
+      if(!post.is_secret) return res.status(200).json(post);
+      const hash = require('crypto').createHash('sha256').update(pw).digest('hex');
+      if(hash === post.password_hash) return res.status(200).json(post);
+      return res.status(403).json({ error: 'invalid password' });
+    }
+
+    if(req.method === 'POST' && pathname === '/api/posts'){
       const body = req.body;
       if(!body || !body.content) return res.status(400).json({ error: 'content required' });
-      const r = await fetch(restBase, { method: 'POST', headers: { ...headers, 'Prefer':'return=representation' }, body: JSON.stringify({ author: body.author||'익명', content: body.content, created_at: new Date().toISOString() }) });
+      const is_secret = !!body.is_secret;
+      const password = body.password || '';
+      const password_hash = is_secret ? require('crypto').createHash('sha256').update(password).digest('hex') : null;
+      const payload = { author: body.author||'익명', content: body.content, created_at: new Date().toISOString(), is_secret, password_hash, reply_content: null, reply_is_secret: false };
+      const r = await fetch(restBase, { method: 'POST', headers: { ...headers, 'Prefer':'return=representation' }, body: JSON.stringify(payload) });
+      const data = await r.json();
+      return res.status(r.status).json(data);
+    }
+
+    // Admin: add reply - PATCH /api/posts/:id/reply
+    if(req.method === 'PATCH' && pathname.match(/^\/api\/posts\/\d+\/reply$/)){
+      const adminToken = req.headers['x-admin-token'] || req.headers['x-admin-token'.toLowerCase()];
+      if(!adminToken || adminToken !== process.env.SUPABASE_ADMIN_TOKEN) return res.status(403).json({ error: 'admin required' });
+      const id = pathname.split('/')[3];
+      const body = req.body || {};
+      const reply_content = body.reply_content || null;
+      const reply_is_secret = !!body.reply_is_secret;
+      const payload = { reply_content, reply_is_secret };
+      const r = await fetch(`${restBase}?id=eq.${id}`, { method: 'PATCH', headers: { ...headers, 'Prefer':'return=representation' }, body: JSON.stringify(payload) });
+      const data = await r.json();
+      return res.status(r.status).json(data);
+    }
+
+    // Admin: delete post - DELETE /api/posts/:id
+    if(req.method === 'DELETE' && pathname.match(/^\/api\/posts\/\d+$/)){
+      const adminToken = req.headers['x-admin-token'] || req.headers['x-admin-token'.toLowerCase()];
+      if(!adminToken || adminToken !== process.env.SUPABASE_ADMIN_TOKEN) return res.status(403).json({ error: 'admin required' });
+      const id = pathname.split('/')[3];
+      const r = await fetch(`${restBase}?id=eq.${id}`, { method: 'DELETE', headers });
       const data = await r.json();
       return res.status(r.status).json(data);
     }

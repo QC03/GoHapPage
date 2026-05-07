@@ -19,6 +19,10 @@ create table if not exists posts (
   id bigserial primary key,
   author text default '익명',
   content text not null,
+  is_secret boolean default false,
+  password_hash text,
+  reply_content text,
+  reply_is_secret boolean default false,
   created_at timestamptz default now()
 );
 
