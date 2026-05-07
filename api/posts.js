@@ -3,9 +3,9 @@
 // SUPABASE_URL (e.g. https://xxxx.supabase.co)
 // SUPABASE_SERVICE_ROLE_KEY (Service Role key - keep secret)
 
-export default async function handler(req, res) {
-  const SUPABASE_URL = "https://gbyvejifhlgxsmbfhlte.supabase.co";
-  const SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdieXZlamlmaGxneHNtYmZobHRlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODEzNzExMCwiZXhwIjoyMDkzNzEzMTEwfQ.Yk_eUdxE8GGQWVPVSyAHGbzNF_HYCLLb-2L9bPvriOk";
+async function handler(req, res) {
+  const SUPABASE_URL = process.env.SUPABASE_URL || "https://gbyvejifhlgxsmbfhlte.supabase.co";
+  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdieXZlamlmaGxneHNtYmZobHRlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODEzNzExMCwiZXhwIjoyMDkzNzEzMTEwfQ.Yk_eUdxE8GGQWVPVSyAHGbzNF_HYCLLb-2L9bPvriOk";
 
   if(!SUPABASE_URL || !SERVICE_KEY){
     return res.status(500).json({ error: 'Supabase not configured on server' });
@@ -41,3 +41,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'proxy error' });
   }
 }
+
+module.exports = handler;

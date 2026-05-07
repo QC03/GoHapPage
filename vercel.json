@@ -1,4 +1,5 @@
 {
   "buildCommand": "echo 'static site'",
-  "outputDirectory": "Pages"
+  "outputDirectory": "Pages",
+  "public": "Pages"
 }
