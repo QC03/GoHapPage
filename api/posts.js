@@ -73,14 +73,22 @@ async function handler(req, res) {
     }
 
     if(req.method === 'POST' && pathname === '/api/posts'){
-      const body = req.body;
-      if(!body || !body.content) return res.status(400).json({ error: 'content required' });
+      let body = req.body;
+      if(typeof body === 'string'){
+        try{ body = JSON.parse(body); }catch(e){
+          return res.status(400).json({ error: 'invalid json' });
+        }
+      }
+      if(!body || !String(body.content || '').trim()) return res.status(400).json({ error: 'content required' });
       const is_secret = !!body.is_secret;
       const password = body.password || '';
       const password_hash = is_secret ? require('crypto').createHash('sha256').update(password).digest('hex') : null;
       const payload = { author: body.author||'익명', content: body.content, created_at: new Date().toISOString(), is_secret, password_hash, reply_content: null, reply_is_secret: false };
       const r = await fetch(restBase, { method: 'POST', headers: { ...headers, 'Prefer':'return=representation' }, body: JSON.stringify(payload) });
-      const data = await r.json();
+      const text = await r.text();
+      let data;
+      try{ data = JSON.parse(text); }catch(e){ data = { raw: text }; }
+      if(!r.ok) return res.status(r.status).json({ error: 'supabase error', details: data });
       return res.status(r.status).json(data);
     }
 
