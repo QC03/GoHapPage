@@ -29,8 +29,29 @@ async function handler(req, res) {
       const page = parseInt((req.query && req.query.page) || (req.query && req.query.p) || 1, 10) || 1;
       const limit = 5;
       const offset = (page - 1) * limit;
-      const url = `${restBase}?select=id,author,created_at,is_secret,reply_content,reply_is_secret&order=created_at.desc&limit=${limit}&offset=${offset}`;
-      const r = await fetch(url, { headers });
+      const selectCols = 'id,author,created_at,is_secret,reply_content,reply_is_secret';
+      const url = `${restBase}?select=${encodeURIComponent(selectCols)}&order=created_at.desc&limit=${limit}&offset=${offset}`;
+
+      // Try primary query; if Supabase returns 400 (likely missing columns), try fallback minimal selects.
+      let r = await fetch(url, { headers });
+      if(r.status === 400){
+        const fallbacks = [
+          'id,author,created_at,is_secret',
+          'id,author,created_at'
+        ];
+        for(const cols of fallbacks){
+          const tryUrl = `${restBase}?select=${encodeURIComponent(cols)}&order=created_at.desc&limit=${limit}&offset=${offset}`;
+          const rr = await fetch(tryUrl, { headers });
+          if(rr.ok){
+            const data = await rr.json();
+            return res.status(200).json(data);
+          }
+        }
+        // If fallbacks also fail, forward original response body for debugging
+        const errBody = await r.text();
+        return res.status(400).json({ error: 'bad request from supabase', details: errBody });
+      }
+
       const data = await r.json();
       return res.status(r.status).json(data);
     }
