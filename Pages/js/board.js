@@ -1,35 +1,11 @@
-// Supabase 게시판 클라이언트 스크립트
-// 사용법:
-// 1) Supabase 프로젝트 생성
-// 2) 테이블 `posts` 생성 (columns: id (serial), author text, content text, created_at timestamptz)
-// 3) 아래 SUPABASE_URL, SUPABASE_ANON_KEY에 값 입력
-
-// If you have a public SUPABASE_URL/ANON_KEY, set them here (client mode).
-const SUPABASE_URL = 'https://irqagypqztspjbkhezdp.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlycWFneXBxenRzcGpia2hlemRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMzY0OTQsImV4cCI6MjA5MzcxMjQ5NH0.0UTRwfCoZqEwgCeJwsuYAw3wOB4T3H4xP0FBi8Ft1Bg';
-
-// Support both UMD builds that expose `supabase` or `supabaseJs` when using client mode
-const _createClient = (typeof window !== 'undefined' && window.supabase && window.supabase.createClient)
-  ? window.supabase.createClient
-  : (typeof window !== 'undefined' && window.supabaseJs && window.supabaseJs.createClient)
-  ? window.supabaseJs.createClient
-  : null;
-
-const supabase = (_createClient && SUPABASE_URL && !SUPABASE_URL.includes('REPLACE')) ? _createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+// 게시판 클라이언트 스크립트 (서버리스 프록시 모드)
+// 모든 요청은 /api/posts 를 거쳐 안전하게 처리됨
 
 const postsList = document.getElementById('posts-list');
 const postForm = document.getElementById('post-form');
 
 async function fetchPosts(){
-  // If client supabase configured, use it. Otherwise call local proxy /api/posts
   try{
-    if(supabase){
-      const { data, error } = await supabase.from('posts').select('id,author,content,created_at').order('created_at', { ascending: false });
-      if(error){ throw error }
-      return renderPosts(data || []);
-    }
-
-    // proxy mode
     const r = await fetch('/api/posts');
     if(!r.ok){ postsList.innerText = '게시글 로드 실패'; return }
     const data = await r.json();
@@ -66,13 +42,8 @@ postForm?.addEventListener('submit', async (e)=>{
   if(!content) return alert('내용을 입력하세요');
 
   try{
-    if(supabase){
-      const { error } = await supabase.from('posts').insert([{ author: author || '익명', content, created_at: new Date().toISOString() }]);
-      if(error){ throw error }
-    }else{
-      const r = await fetch('/api/posts', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ author: author || '익명', content }) });
-      if(!r.ok) throw new Error('등록 실패');
-    }
+    const r = await fetch('/api/posts', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ author: author || '익명', content }) });
+    if(!r.ok) throw new Error('등록 실패');
 
     document.getElementById('post-author').value = '';
     document.getElementById('post-content').value = '';
