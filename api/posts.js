@@ -83,12 +83,17 @@ async function handler(req, res) {
       const is_secret = !!body.is_secret;
       const password = body.password || '';
       const password_hash = is_secret ? require('crypto').createHash('sha256').update(password).digest('hex') : null;
-      const payload = { author: body.author||'익명', content: body.content, created_at: new Date().toISOString(), is_secret, password_hash, reply_content: null, reply_is_secret: false };
+      const payload = {
+        author: body.author || '익명',
+        content: String(body.content).trim(),
+        is_secret,
+        ...(is_secret ? { password_hash } : {})
+      };
       const r = await fetch(restBase, { method: 'POST', headers: { ...headers, 'Prefer':'return=representation' }, body: JSON.stringify(payload) });
       const text = await r.text();
       let data;
       try{ data = JSON.parse(text); }catch(e){ data = { raw: text }; }
-      if(!r.ok) return res.status(r.status).json({ error: 'supabase error', details: data });
+      if(!r.ok) return res.status(r.status).json({ error: 'supabase error', details: data, status: r.status, statusText: r.statusText });
       return res.status(r.status).json(data);
     }
 

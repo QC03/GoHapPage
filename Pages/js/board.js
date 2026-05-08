@@ -202,8 +202,15 @@
       console.log('[Board] 응답 상태:', response.status);
 
       if (!response.ok) {
-        console.error('[Board] API 에러:', response.status);
-        alert('등록 실패. 다시 시도해주세요.');
+        const responseText = await response.text().catch(() => '');
+        let errorBody = {};
+        try {
+          errorBody = responseText ? JSON.parse(responseText) : {};
+        } catch (parseError) {
+          errorBody = { raw: responseText };
+        }
+        console.error('[Board] API 에러:', response.status, errorBody);
+        alert(errorBody.details?.error || errorBody.error || '등록 실패. 다시 시도해주세요.');
         return;
       }
 
