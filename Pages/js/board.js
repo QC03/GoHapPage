@@ -150,15 +150,14 @@
 
       postEl.appendChild(contentArea);
 
-      // Reply display
-      if(post.reply_content){
+      // Reply display (only show if post is not secret)
+      if(post.reply_content && !post.is_secret){
         const replyEl = document.createElement('div');
         replyEl.className = 'post-reply';
         replyEl.style.cssText = 'margin-top:12px;padding:12px;border-left:3px solid var(--brand-blue);background:rgba(18,18,161,0.03);border-radius:4px;font-size:13px;';
-        if(post.reply_is_secret && !post.is_secret){
+        if(post.reply_is_secret){
           replyEl.innerHTML = '<em>관리자 전용 비밀댓글</em>';
         } else {
-          // if post was secret but unlocked, post.reply_content may be available via verify response
           const replyTitle = document.createElement('strong');
           replyTitle.style.cssText = 'color:var(--brand-blue);display:block;margin-bottom:4px;';
           replyTitle.textContent = '답글';
@@ -350,6 +349,11 @@
       if(!r.ok){ const e = await r.json().catch(()=>({})); return showFeedback(e.error || '비밀번호가 틀립니다', 'error'); }
       const data = await r.json();
       contentArea.textContent = data.content || '';
+      
+      // Remove existing reply element if it exists
+      const existingReply = contentArea.parentElement.querySelector('.post-reply');
+      if(existingReply) existingReply.remove();
+      
       if(data.reply_content){
         const replyEl = document.createElement('div'); 
         replyEl.className = 'post-reply';
