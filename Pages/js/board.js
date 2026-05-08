@@ -91,24 +91,52 @@
 
     posts.forEach(post => {
       const postEl = document.createElement('div');
-      postEl.style.cssText = 'padding: 12px; border: 1px solid rgba(16,24,72,0.06); border-radius: 8px; margin-bottom: 8px;';
+      postEl.className = 'post-item';
+      postEl.style.cssText = 'padding: 14px; border: 1px solid rgba(16,24,72,0.06); border-radius: 8px; margin-bottom: 12px;';
 
       const author = sanitizeHtml(post.author || '익명');
       const content = sanitizeHtml(post.content || '');
       const createdAt = new Date(post.created_at).toLocaleString('ko-KR');
+      
       // Header
       const header = document.createElement('div');
-      header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;';
-      header.innerHTML = `<strong style="color: var(--brand-blue);">${author}</strong><span style="color: var(--muted); font-size: 12px;">${createdAt}</span>`;
+      header.className = 'post-header';
+      header.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;font-size:13px;';
+      
+      const authorSpan = document.createElement('span');
+      authorSpan.className = 'post-author';
+      authorSpan.textContent = author;
+      authorSpan.style.cssText = 'font-weight:600;color:#172033;';
+      
+      const dateSpan = document.createElement('span');
+      dateSpan.className = 'post-date';
+      dateSpan.textContent = createdAt;
+      dateSpan.style.cssText = 'color:var(--muted);';
+      
+      if(post.is_secret){
+        const badgeEl = document.createElement('span');
+        badgeEl.className = 'post-secret-badge';
+        badgeEl.textContent = '비밀글';
+        badgeEl.style.cssText = 'background:var(--brand-blue);color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;';
+        header.appendChild(authorSpan);
+        header.appendChild(badgeEl);
+        header.appendChild(dateSpan);
+      } else {
+        header.appendChild(authorSpan);
+        header.appendChild(dateSpan);
+      }
       postEl.appendChild(header);
 
       // Content area
       const contentArea = document.createElement('div');
-      contentArea.style.cssText = 'color:#333;line-height:1.5;word-wrap:break-word;margin-bottom:8px;';
+      contentArea.className = 'post-content';
+      contentArea.style.cssText = 'color:#172033;line-height:1.5;word-wrap:break-word;margin-bottom:8px;';
 
       if(post.is_secret){
         contentArea.innerHTML = '<em>비밀글입니다. 보기 버튼을 눌러 비밀번호를 입력하세요.</em> ';
-        const viewBtn = document.createElement('button'); viewBtn.textContent = '보기';
+        const viewBtn = document.createElement('button');
+        viewBtn.style.cssText = 'margin-left:8px;padding:4px 10px;background:var(--brand-blue);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;';
+        viewBtn.textContent = '보기';
         viewBtn.addEventListener('click', ()=> verifyAndShow(post.id, contentArea, post));
         contentArea.appendChild(viewBtn);
       } else {
@@ -120,12 +148,20 @@
       // Reply display
       if(post.reply_content){
         const replyEl = document.createElement('div');
-        replyEl.style.cssText = 'margin-top:8px;padding:10px;border-left:3px solid var(--brand-blue);background:#fff7;';
+        replyEl.className = 'post-reply';
+        replyEl.style.cssText = 'margin-top:12px;padding:12px;border-left:3px solid var(--brand-blue);background:rgba(18,18,161,0.03);border-radius:4px;font-size:13px;';
         if(post.reply_is_secret && !post.is_secret){
           replyEl.innerHTML = '<em>관리자 전용 비밀댓글</em>';
         } else {
           // if post was secret but unlocked, post.reply_content may be available via verify response
-          replyEl.innerHTML = `<strong style="color:var(--brand-blue)">답글</strong><div style="color:var(--muted);margin-top:6px">${sanitizeHtml(post.reply_content)}</div>`;
+          const replyTitle = document.createElement('strong');
+          replyTitle.style.cssText = 'color:var(--brand-blue);display:block;margin-bottom:4px;';
+          replyTitle.textContent = '답글';
+          const replyContent = document.createElement('div');
+          replyContent.style.cssText = 'color:var(--muted);';
+          replyContent.textContent = post.reply_content;
+          replyEl.appendChild(replyTitle);
+          replyEl.appendChild(replyContent);
         }
         postEl.appendChild(replyEl);
       }
@@ -159,6 +195,18 @@
     });
   }
 
+  // 피드백 메시지 표시
+  function showFeedback(message, type = 'success') {
+    const feedbackEl = document.getElementById('form-feedback');
+    if (!feedbackEl) return;
+    feedbackEl.textContent = message;
+    feedbackEl.className = 'form-feedback ' + type;
+    feedbackEl.style.display = 'block';
+    if(type === 'success') {
+      setTimeout(() => { feedbackEl.style.display = 'none'; }, 3000);
+    }
+  }
+
   // 게시글 등록
   async function submitPost(e) {
     e.preventDefault();
@@ -166,6 +214,7 @@
 
     const authorInput = document.getElementById('post-author');
     const contentInput = document.getElementById('post-content');
+    const feedbackEl = document.getElementById('form-feedback');
 
     if (!authorInput || !contentInput) {
       console.error('[Board] 폼 입력 요소 없음');
@@ -176,7 +225,7 @@
     const content = contentInput.value.trim();
 
     if (!content) {
-      alert('내용을 입력하세요');
+      showFeedback('내용을 입력하세요', 'error');
       return;
     }
 
@@ -184,7 +233,10 @@
 
     const isSecret = !!(secretCheckbox && secretCheckbox.checked);
     const password = passwordInput ? passwordInput.value : '';
-    if(isSecret && !password){ alert('비밀글이면 비밀번호를 입력하세요'); return }
+    if(isSecret && !password){ 
+      showFeedback('비밀글이면 비밀번호를 입력하세요', 'error');
+      return;
+    }
 
     try {
       console.log('[Board] /api/posts POST 요청 시작');
@@ -210,18 +262,25 @@
           errorBody = { raw: responseText };
         }
         console.error('[Board] API 에러:', response.status, errorBody);
-        alert(errorBody.details?.error || errorBody.error || '등록 실패. 다시 시도해주세요.');
+        const errorMsg = errorBody.details?.error || errorBody.error || '등록 실패. 다시 시도해주세요.';
+        showFeedback(errorMsg, 'error');
         return;
       }
 
       console.log('[Board] 등록 성공');
+      showFeedback('문의가 등록되었습니다. 감사합니다!', 'success');
       // 성공 - 폼 초기화 및 목록 갱신
       authorInput.value = '';
       contentInput.value = '';
-      loadPosts();
+      if(secretCheckbox) secretCheckbox.checked = false;
+      if(passwordInput) {
+        passwordInput.value = '';
+        passwordInput.style.display = 'none';
+      }
+      setTimeout(() => { loadPosts(); }, 500);
     } catch (error) {
       console.error('[Board] 등록 에러:', error);
-      alert('네트워크 오류가 발생했습니다.');
+      showFeedback('네트워크 오류가 발생했습니다.', 'error');
     }
   }
 
@@ -246,15 +305,24 @@
     if(pw === null) return;
     try{
       const r = await fetch('/api/posts?action=verify&id=' + encodeURIComponent(id), { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password: pw }) });
-      if(!r.ok){ const e = await r.json().catch(()=>({})); return alert(e.error || '비밀번호가 틀립니다'); }
+      if(!r.ok){ const e = await r.json().catch(()=>({})); return showFeedback(e.error || '비밀번호가 틀립니다', 'error'); }
       const data = await r.json();
-      contentArea.innerHTML = sanitizeHtml(data.content || '');
+      contentArea.textContent = data.content || '';
       if(data.reply_content){
-        const replyEl = document.createElement('div'); replyEl.style.cssText='margin-top:8px;padding:10px;border-left:3px solid var(--brand-blue);';
-        replyEl.innerHTML = `<strong style="color:var(--brand-blue)">답글</strong><div style="color:var(--muted);margin-top:6px">${sanitizeHtml(data.reply_content)}</div>`;
+        const replyEl = document.createElement('div'); 
+        replyEl.className = 'post-reply';
+        replyEl.style.cssText='margin-top:12px;padding:12px;border-left:3px solid var(--brand-blue);background:rgba(18,18,161,0.03);border-radius:4px;font-size:13px;';
+        const replyTitle = document.createElement('strong');
+        replyTitle.style.cssText = 'color:var(--brand-blue);display:block;margin-bottom:4px;';
+        replyTitle.textContent = '답글';
+        const replyContent = document.createElement('div');
+        replyContent.style.cssText = 'color:var(--muted);';
+        replyContent.textContent = data.reply_content;
+        replyEl.appendChild(replyTitle);
+        replyEl.appendChild(replyContent);
         contentArea.parentElement.appendChild(replyEl);
       }
-    }catch(err){ console.error(err); alert('검증 중 오류'); }
+    }catch(err){ console.error(err); showFeedback('검증 중 오류가 발생했습니다', 'error'); }
   }
 
   // admin login panel in pagination
