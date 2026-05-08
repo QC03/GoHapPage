@@ -95,8 +95,16 @@ async function handler(req, res) {
         const body = req.body || {};
         const pw = body.password || '';
         if(pw !== '0610') return res.status(403).json({ error: 'invalid password' });
+        
+        // Fetch post to get its is_secret value
+        const fetchPostR = await fetch(`${restBase}?id=eq.${id}&select=is_secret`, { headers });
+        const postItems = await fetchPostR.json();
+        const post = (postItems && postItems[0]) || null;
+        if(!post) return res.status(404).json({ error: 'post not found' });
+        
+        // Reply inherits post's secret status
         const reply_content = body.reply_content || null;
-        const reply_is_secret = !!body.reply_is_secret;
+        const reply_is_secret = post.is_secret;
         const payload = { reply_content, reply_is_secret };
         const r = await fetch(`${restBase}?id=eq.${id}`, { method: 'PATCH', headers: { ...headers, 'Prefer':'return=representation' }, body: JSON.stringify(payload) });
         const data = await r.json();

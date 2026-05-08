@@ -206,13 +206,6 @@
         replyInput.style.cssText = 'width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:14px;font-family:inherit;margin-bottom:8px;';
         replyInput.rows = 3;
         
-        const secretCheckbox = document.createElement('input');
-        secretCheckbox.type = 'checkbox';
-        const secretLabel = document.createElement('label');
-        secretLabel.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:8px;';
-        secretLabel.appendChild(secretCheckbox);
-        secretLabel.append(' 비밀 답글');
-        
         const submitBtn = document.createElement('button');
         submitBtn.textContent = '답글 등록';
         submitBtn.style.cssText = 'padding:8px 16px;background:var(--brand-blue);color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;margin-right:8px;';
@@ -223,7 +216,7 @@
         
         submitBtn.addEventListener('click', async ()=>{
           if(!replyInput.value.trim()) return alert('답글 내용을 입력하세요');
-          const payload = { reply_content: replyInput.value, reply_is_secret: !!secretCheckbox.checked, password: pw };
+          const payload = { reply_content: replyInput.value, reply_is_secret: post.is_secret, password: pw };
           const r = await fetch('/api/posts?action=reply&id=' + encodeURIComponent(post.id), { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
           if(!r.ok) return alert('답글 등록 실패');
           alert('답글 등록됨'); replyFormWrapper.remove(); loadPosts(currentPage);
@@ -234,7 +227,6 @@
         });
         
         replyFormWrapper.appendChild(replyInput);
-        replyFormWrapper.appendChild(secretLabel);
         replyFormWrapper.appendChild(submitBtn);
         replyFormWrapper.appendChild(cancelBtn);
         postEl.appendChild(replyFormWrapper);
