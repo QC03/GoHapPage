@@ -177,9 +177,11 @@
       delBtn.addEventListener('click', async ()=>{
         const pw = prompt('삭제하려면 관리자 비밀번호를 입력하세요');
         if(pw === null) return;
-        if(pw !== '0610') return alert('비밀번호가 틀렸습니다');
         const r = await fetch('/api/posts?action=delete&id=' + encodeURIComponent(post.id), { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ password: pw }) });
-        if(!r.ok) return alert('삭제 실패');
+        if(!r.ok){
+          const e = await r.json().catch(()=>({}));
+          return alert(e.error || '삭제 실패');
+        }
         alert('삭제됨'); loadPosts(currentPage);
       });
       const buttonWrapper = document.createElement('div');
@@ -194,7 +196,6 @@
       replyAdminBtn.addEventListener('click', async ()=>{
         const pw = prompt('답글을 등록하려면 관리자 비밀번호를 입력하세요');
         if(pw === null) return;
-        if(pw !== '0610') return alert('비밀번호가 틀렸습니다');
         
         // Create inline reply form
         const replyFormWrapper = document.createElement('div');
@@ -217,7 +218,10 @@
           if(!replyInput.value.trim()) return alert('답글 내용을 입력하세요');
           const payload = { reply_content: replyInput.value, reply_is_secret: post.is_secret, password: pw };
           const r = await fetch('/api/posts?action=reply&id=' + encodeURIComponent(post.id), { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
-          if(!r.ok) return alert('답글 등록 실패');
+          if(!r.ok){
+            const e = await r.json().catch(()=>({}));
+            return alert(e.error || '답글 등록 실패');
+          }
           alert('답글 등록됨'); replyFormWrapper.remove(); loadPosts(currentPage);
         });
         

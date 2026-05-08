@@ -27,20 +27,6 @@
 - 백엔드: 문의 게시판 등 동적 기능 필요 시 별도 구현(예: Node.js/Express 또는 Flask)
 - 지도: 카카오맵 RoughMap 임베드
 
-## 로컬 실행(정적 템플릿 확인)
-1. 루트에서 정적 서버를 실행합니다. (`Pages`/`includes`를 `fetch`로 로드하므로 `file://` 직접 실행은 권장하지 않음)
-2. `Pages/index.html`로 접속해 확인합니다.
-
-예시 실행:
-```powershell
-npx serve .
-```
-
-## 다음 단계(선택 사항)
-- 문의 폼/게시판 기능을 DB-backed로 구현할지 여부 결정
-- 배포 방식 선택(GitHub Pages, Vercel, Netlify 등)
-- 반응형(모바일) 최적화 및 접근성 개선
-
 ---
 파일 위치:
 - 기획안: [기획안.txt](기획안.txt)
@@ -48,20 +34,15 @@ npx serve .
 
 ## 배포 (Vercel)
 
-이 레포는 정적 사이트로 Vercel에 배포되도록 설정되어 있습니다. `Pages/` 디렉터리를 사이트 루트로 사용합니다.
+이 레포는 Vercel에 배포되도록 설정되어 있습니다.
 
-간단한 배포 방법:
+### 필수 환경변수
 
-1. Vercel에 이미 리포를 import 하셨다면, Vercel 대시보드에서 `Deploy` 버튼을 눌러 배포를 시작하세요.
-2. 수동으로 배포하려면 로컬에서 Vercel CLI를 사용합니다 (토큰 필요):
+- SUPABASE_URL
+- SUPABASE_SERVICE_ROLE_KEY
+- ADMIN_PASSWORD
 
-```bash
-npm i -g vercel
-vercel --prod
-```
+### 보안 주의사항
 
-3. 배포 도중 자원 경로가 잘못 보이면 `vercel.json` 또는 파일 경로를 조정하세요. 현재 `vercel.json`이 `Pages/`를 루트로 라우팅합니다.
-
-배포 완료 후 저는 사이트 접속을 확인하고, `Map` 임베드가 정상 동작하는지 콘솔 에러를 검사하겠습니다.
-
-원하시면 제가 프로젝트 템플릿(정적 파일 기반)을 생성했고, 다음으로 게시판 구현 또는 React/Vue 변환 중 어떤 작업을 원하시는지 알려주세요.
+- 서비스 롤 키와 관리자 비밀번호는 코드에 하드코딩하지 마세요.
+- 기존에 노출된 키가 있었다면 Supabase에서 즉시 폐기 후 재발급하세요.

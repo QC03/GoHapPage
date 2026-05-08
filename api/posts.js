@@ -1,55 +1,115 @@
 // Serverless proxy for Supabase REST API
 // Requires environment variables at deployment:
-// SUPABASE_URL (e.g. https://xxxx.supabase.co)
-// SUPABASE_SERVICE_ROLE_KEY (Service Role key - keep secret)
+// SUPABASE_URL
+// SUPABASE_SERVICE_ROLE_KEY
+// ADMIN_PASSWORD
+
+const crypto = require('crypto');
+
+const RATE_LIMIT_STORE = new Map();
+
+function clientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.length > 0) {
+    return forwarded.split(',')[0].trim();
+  }
+  return (req.socket && req.socket.remoteAddress) || 'unknown';
+}
+
+function checkRateLimit(req, scope, limit, windowMs) {
+  const key = `${scope}:${clientIp(req)}`;
+  const now = Date.now();
+  const current = RATE_LIMIT_STORE.get(key);
+  if (!current || now > current.resetAt) {
+    RATE_LIMIT_STORE.set(key, { count: 1, resetAt: now + windowMs });
+    return { limited: false };
+  }
+  if (current.count >= limit) {
+    return { limited: true, retryAfterSec: Math.ceil((current.resetAt - now) / 1000) };
+  }
+  current.count += 1;
+  RATE_LIMIT_STORE.set(key, current);
+  return { limited: false };
+}
+
+function sanitizePost(post) {
+  if (!post) return null;
+  const { password_hash, ...safe } = post;
+  return safe;
+}
+
+function parsePostId(raw) {
+  const id = String(raw || '').trim();
+  return /^\d+$/.test(id) ? id : null;
+}
+
+function hashSecretPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+  return `scrypt$${salt}$${hash}`;
+}
+
+function verifySecretPassword(password, storedHash) {
+  if (!storedHash || !password) return false;
+  if (storedHash.startsWith('scrypt$')) {
+    const parts = storedHash.split('$');
+    if (parts.length !== 3) return false;
+    const salt = parts[1];
+    const expectedHex = parts[2];
+    const candidateHex = crypto.scryptSync(password, salt, 64).toString('hex');
+    const expected = Buffer.from(expectedHex, 'hex');
+    const candidate = Buffer.from(candidateHex, 'hex');
+    if (expected.length !== candidate.length) return false;
+    return crypto.timingSafeEqual(expected, candidate);
+  }
+
+  // Backward compatibility for legacy SHA-256 rows
+  const legacy = crypto.createHash('sha256').update(password).digest('hex');
+  return legacy === storedHash;
+}
 
 async function handler(req, res) {
-  const SUPABASE_URL = process.env.SUPABASE_URL || "https://gbyvejifhlgxsmbfhlte.supabase.co";
-  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdieXZlamlmaGxneHNtYmZobHRlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODEzNzExMCwiZXhwIjoyMDkzNzEzMTEwfQ.Yk_eUdxE8GGQWVPVSyAHGbzNF_HYCLLb-2L9bPvriOk";
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
-  if(!SUPABASE_URL || !SERVICE_KEY){
-    return res.status(500).json({ error: 'Supabase not configured on server' });
+  if (!SUPABASE_URL || !SERVICE_KEY) {
+    return res.status(500).json({ error: 'server not configured' });
   }
 
   const restBase = `${SUPABASE_URL}/rest/v1/posts`;
   const headers = {
-    'apikey': SERVICE_KEY,
-    'Authorization': `Bearer ${SERVICE_KEY}`,
+    apikey: SERVICE_KEY,
+    Authorization: `Bearer ${SERVICE_KEY}`,
     'Content-Type': 'application/json'
   };
 
-  try{
-    // Routing: support list with pagination, single post verify, admin reply and delete
+  try {
     const urlPath = req.url || req.path || '';
-    // Normalize: remove query
     const pathname = urlPath.split('?')[0];
 
-    // GET list with pagination: /api/posts?page=1
-    if(req.method === 'GET' && (pathname === '/api/posts' || pathname === '/posts' || pathname === '/')){
+    if (req.method === 'GET' && (pathname === '/api/posts' || pathname === '/posts' || pathname === '/')) {
       const page = parseInt((req.query && req.query.page) || (req.query && req.query.p) || 1, 10) || 1;
       const limit = 5;
       const offset = (page - 1) * limit;
       const selectCols = 'id,author,content,created_at,is_secret,reply_content,reply_is_secret';
       const url = `${restBase}?select=${encodeURIComponent(selectCols)}&order=created_at.desc&limit=${limit}&offset=${offset}`;
 
-      // Try primary query; if Supabase returns 400 (likely missing columns), try fallback minimal selects.
       let r = await fetch(url, { headers });
-      if(r.status === 400){
+      if (r.status === 400) {
         const fallbacks = [
           'id,author,content,created_at,is_secret',
           'id,author,content,created_at'
         ];
-        for(const cols of fallbacks){
+        for (const cols of fallbacks) {
           const tryUrl = `${restBase}?select=${encodeURIComponent(cols)}&order=created_at.desc&limit=${limit}&offset=${offset}`;
           const rr = await fetch(tryUrl, { headers });
-          if(rr.ok){
+          if (rr.ok) {
             const data = await rr.json();
             return res.status(200).json(data);
           }
         }
-        // If fallbacks also fail, forward original response body for debugging
-        const errBody = await r.text();
-        return res.status(400).json({ error: 'bad request from supabase', details: errBody });
+        return res.status(500).json({ error: 'failed to load posts' });
       }
 
       const data = await r.json();
@@ -58,70 +118,107 @@ async function handler(req, res) {
 
     // Verify secret post and fetch content.
     // Supports both POST /api/posts/:id/verify and POST /api/posts?action=verify&id=:id
-    if(req.method === 'POST' && (pathname.match(/^\/api\/posts\/\d+\/verify$/) || (pathname === '/api/posts' && ((req.query && req.query.action) === 'verify' || (req.query && req.query.verify === '1'))))){
+    if (req.method === 'POST' && (pathname.match(/^\/api\/posts\/\d+\/verify$/) || (pathname === '/api/posts' && ((req.query && req.query.action) === 'verify' || (req.query && req.query.verify === '1'))))) {
+      const limiter = checkRateLimit(req, 'verify', 20, 60 * 1000);
+      if (limiter.limited) {
+        return res.status(429).json({ error: 'too many requests', retry_after: limiter.retryAfterSec });
+      }
+
       const id = pathname.match(/^\/api\/posts\/\d+\/verify$/)
         ? pathname.split('/')[3]
         : String((req.query && req.query.id) || '');
+      const safeId = parsePostId(id);
+      if (!safeId) return res.status(400).json({ error: 'invalid post id' });
       const body = req.body || {};
-      const pw = body.password || '';
-      // fetch post
-      const r = await fetch(`${restBase}?select=id,author,content,is_secret,password_hash,reply_content,reply_is_secret&id=eq.${id}`, { headers });
+      const pw = String(body.password || '');
+
+      const r = await fetch(`${restBase}?select=id,author,content,is_secret,password_hash,reply_content,reply_is_secret&id=eq.${safeId}`, { headers });
       const items = await r.json();
       const post = (items && items[0]) || null;
-      if(!post) return res.status(404).json({ error: 'not found' });
-      if(!post.is_secret) return res.status(200).json(post);
-      // Allow both post password and admin password (0610)
-      const hash = require('crypto').createHash('sha256').update(pw).digest('hex');
-      if(hash === post.password_hash || pw === '0610') return res.status(200).json(post);
+      if (!post) return res.status(404).json({ error: 'not found' });
+      if (!post.is_secret) return res.status(200).json(sanitizePost(post));
+
+      const isAdminPw = ADMIN_PASSWORD && pw === ADMIN_PASSWORD;
+      if (verifySecretPassword(pw, post.password_hash) || isAdminPw) {
+        return res.status(200).json(sanitizePost(post));
+      }
       return res.status(403).json({ error: 'invalid password' });
     }
 
-    if(req.method === 'POST' && pathname === '/api/posts'){
-      // Check if this is a delete request
-      if((req.query && req.query.action) === 'delete' && (req.query && req.query.id)){
+    if (req.method === 'POST' && pathname === '/api/posts') {
+      if ((req.query && req.query.action) === 'delete' && (req.query && req.query.id)) {
+        const limiter = checkRateLimit(req, 'admin-delete', 10, 60 * 1000);
+        if (limiter.limited) {
+          return res.status(429).json({ error: 'too many requests', retry_after: limiter.retryAfterSec });
+        }
+        if (!ADMIN_PASSWORD) return res.status(500).json({ error: 'server not configured' });
+
         const id = String((req.query && req.query.id) || '');
+        const safeId = parsePostId(id);
+        if (!safeId) return res.status(400).json({ error: 'invalid post id' });
         const body = req.body || {};
-        const pw = body.password || '';
-        if(pw !== '0610') return res.status(403).json({ error: 'invalid password' });
-        const r = await fetch(`${restBase}?id=eq.${id}`, { method: 'DELETE', headers });
-        // DELETE might return 204 No Content, so don't try to parse JSON
-        if(!r.ok) return res.status(r.status).json({ error: 'delete failed' });
+        const pw = String(body.password || '');
+        if (pw !== ADMIN_PASSWORD) return res.status(403).json({ error: 'invalid password' });
+
+        const r = await fetch(`${restBase}?id=eq.${safeId}`, { method: 'DELETE', headers });
+        if (!r.ok) return res.status(r.status).json({ error: 'delete failed' });
         return res.status(200).json({ success: true });
       }
-      
-      // Check if this is a reply request
-      if((req.query && req.query.action) === 'reply' && (req.query && req.query.id)){
+
+      if ((req.query && req.query.action) === 'reply' && (req.query && req.query.id)) {
+        const limiter = checkRateLimit(req, 'admin-reply', 10, 60 * 1000);
+        if (limiter.limited) {
+          return res.status(429).json({ error: 'too many requests', retry_after: limiter.retryAfterSec });
+        }
+        if (!ADMIN_PASSWORD) return res.status(500).json({ error: 'server not configured' });
+
         const id = String((req.query && req.query.id) || '');
+        const safeId = parsePostId(id);
+        if (!safeId) return res.status(400).json({ error: 'invalid post id' });
         const body = req.body || {};
-        const pw = body.password || '';
-        if(pw !== '0610') return res.status(403).json({ error: 'invalid password' });
-        
-        // Fetch post to get its is_secret value
-        const fetchPostR = await fetch(`${restBase}?id=eq.${id}&select=is_secret`, { headers });
+        const pw = String(body.password || '');
+        if (pw !== ADMIN_PASSWORD) return res.status(403).json({ error: 'invalid password' });
+
+        const fetchPostR = await fetch(`${restBase}?id=eq.${safeId}&select=is_secret`, { headers });
         const postItems = await fetchPostR.json();
         const post = (postItems && postItems[0]) || null;
-        if(!post) return res.status(404).json({ error: 'post not found' });
-        
-        // Reply inherits post's secret status
-        const reply_content = body.reply_content || null;
-        const reply_is_secret = post.is_secret;
+        if (!post) return res.status(404).json({ error: 'post not found' });
+
+        const reply_content = String(body.reply_content || '').trim() || null;
+        const reply_is_secret = !!post.is_secret;
         const payload = { reply_content, reply_is_secret };
-        const r = await fetch(`${restBase}?id=eq.${id}`, { method: 'PATCH', headers: { ...headers, 'Prefer':'return=representation' }, body: JSON.stringify(payload) });
+
+        const r = await fetch(`${restBase}?id=eq.${safeId}`, {
+          method: 'PATCH',
+          headers: { ...headers, Prefer: 'return=representation' },
+          body: JSON.stringify(payload)
+        });
         const data = await r.json();
         return res.status(r.status).json(data);
       }
-      
-      // Otherwise, handle as normal post creation
+
+      const createLimiter = checkRateLimit(req, 'create-post', 30, 60 * 1000);
+      if (createLimiter.limited) {
+        return res.status(429).json({ error: 'too many requests', retry_after: createLimiter.retryAfterSec });
+      }
+
       let body = req.body;
-      if(typeof body === 'string'){
-        try{ body = JSON.parse(body); }catch(e){
+      if (typeof body === 'string') {
+        try {
+          body = JSON.parse(body);
+        } catch (e) {
           return res.status(400).json({ error: 'invalid json' });
         }
       }
-      if(!body || !String(body.content || '').trim()) return res.status(400).json({ error: 'content required' });
+      if (!body || !String(body.content || '').trim()) return res.status(400).json({ error: 'content required' });
+
       const is_secret = !!body.is_secret;
-      const password = body.password || '';
-      const password_hash = is_secret ? require('crypto').createHash('sha256').update(password).digest('hex') : null;
+      const password = String(body.password || '');
+      if (is_secret && password.length < 4) {
+        return res.status(400).json({ error: 'password must be at least 4 characters' });
+      }
+
+      const password_hash = is_secret ? hashSecretPassword(password) : null;
       const basePayload = {
         author: body.author || '익명',
         content: String(body.content).trim()
@@ -129,41 +226,31 @@ async function handler(req, res) {
       const payload = is_secret
         ? { ...basePayload, is_secret, password_hash }
         : basePayload;
-      const r = await fetch(restBase, { method: 'POST', headers: { ...headers, 'Prefer':'return=representation' }, body: JSON.stringify(payload) });
+
+      const r = await fetch(restBase, {
+        method: 'POST',
+        headers: { ...headers, Prefer: 'return=representation' },
+        body: JSON.stringify(payload)
+      });
+
       const text = await r.text();
       let data;
-      try{ data = JSON.parse(text); }catch(e){ data = { raw: text }; }
-      if(!r.ok) return res.status(r.status).json({ error: 'supabase error', details: data, status: r.status, statusText: r.statusText, payload });
-      return res.status(r.status).json(data);
-    }
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        data = { raw: text };
+      }
 
-    // Admin: add reply - PATCH /api/posts/:id/reply
-    if(req.method === 'PATCH' && pathname.match(/^\/api\/posts\/\d+\/reply$/)){
-      const id = pathname.split('/')[3];
-      const body = req.body || {};
-      const pw = body.password || '';
-      if(pw !== '0610') return res.status(403).json({ error: 'invalid password' });
-      const reply_content = body.reply_content || null;
-      const reply_is_secret = !!body.reply_is_secret;
-      const payload = { reply_content, reply_is_secret };
-      const r = await fetch(`${restBase}?id=eq.${id}`, { method: 'PATCH', headers: { ...headers, 'Prefer':'return=representation' }, body: JSON.stringify(payload) });
-      const data = await r.json();
-      return res.status(r.status).json(data);
-    }
-
-    // Admin: delete post - DELETE /api/posts/:id
-    if(req.method === 'DELETE' && pathname.match(/^\/api\/posts\/\d+$/)){
-      const adminToken = req.headers['x-admin-token'] || req.headers['x-admin-token'.toLowerCase()];
-      if(!adminToken || adminToken !== '0610') return res.status(403).json({ error: 'admin required' });
-      const id = pathname.split('/')[3];
-      const r = await fetch(`${restBase}?id=eq.${id}`, { method: 'DELETE', headers });
-      const data = await r.json();
-      return res.status(r.status).json(data);
+      if (!r.ok) return res.status(r.status).json({ error: 'failed to create post' });
+      if (Array.isArray(data)) {
+        return res.status(r.status).json(data.map(sanitizePost));
+      }
+      return res.status(r.status).json(sanitizePost(data));
     }
 
     res.setHeader('Allow', 'GET,POST');
     return res.status(405).end('Method Not Allowed');
-  }catch(err){
+  } catch (err) {
     console.error(err);
     return res.status(500).json({ error: 'proxy error' });
   }
