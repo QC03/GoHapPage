@@ -83,8 +83,9 @@ async function handler(req, res) {
         const pw = body.password || '';
         if(pw !== '0610') return res.status(403).json({ error: 'invalid password' });
         const r = await fetch(`${restBase}?id=eq.${id}`, { method: 'DELETE', headers });
-        const data = await r.json();
-        return res.status(r.status).json(data);
+        // DELETE might return 204 No Content, so don't try to parse JSON
+        if(!r.ok) return res.status(r.status).json({ error: 'delete failed' });
+        return res.status(200).json({ success: true });
       }
       
       // Otherwise, handle as normal post creation
