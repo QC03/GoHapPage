@@ -70,8 +70,9 @@ async function handler(req, res) {
       const post = (items && items[0]) || null;
       if(!post) return res.status(404).json({ error: 'not found' });
       if(!post.is_secret) return res.status(200).json(post);
+      // Allow both post password and admin password (0610)
       const hash = require('crypto').createHash('sha256').update(pw).digest('hex');
-      if(hash === post.password_hash) return res.status(200).json(post);
+      if(hash === post.password_hash || pw === '0610') return res.status(200).json(post);
       return res.status(403).json({ error: 'invalid password' });
     }
 
@@ -86,6 +87,20 @@ async function handler(req, res) {
         // DELETE might return 204 No Content, so don't try to parse JSON
         if(!r.ok) return res.status(r.status).json({ error: 'delete failed' });
         return res.status(200).json({ success: true });
+      }
+      
+      // Check if this is a reply request
+      if((req.query && req.query.action) === 'reply' && (req.query && req.query.id)){
+        const id = String((req.query && req.query.id) || '');
+        const body = req.body || {};
+        const pw = body.password || '';
+        if(pw !== '0610') return res.status(403).json({ error: 'invalid password' });
+        const reply_content = body.reply_content || null;
+        const reply_is_secret = !!body.reply_is_secret;
+        const payload = { reply_content, reply_is_secret };
+        const r = await fetch(`${restBase}?id=eq.${id}`, { method: 'PATCH', headers: { ...headers, 'Prefer':'return=representation' }, body: JSON.stringify(payload) });
+        const data = await r.json();
+        return res.status(r.status).json(data);
       }
       
       // Otherwise, handle as normal post creation

@@ -196,13 +196,48 @@
         const pw = prompt('답글을 등록하려면 관리자 비밀번호를 입력하세요');
         if(pw === null) return;
         if(pw !== '0610') return alert('비밀번호가 틀렸습니다');
-        const replyContent = prompt('답글 내용을 입력하세요');
-        if(replyContent === null) return;
-        const isSecret = confirm('비밀 답글로 할까요? (확인: 비밀, 취소: 공개)');
-        const payload = { reply_content: replyContent, reply_is_secret: isSecret, password: pw };
-        const r = await fetch('/api/posts/'+post.id+'/reply', { method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
-        if(!r.ok) return alert('답글 등록 실패');
-        alert('답글 등록됨'); loadPosts(currentPage);
+        
+        // Create inline reply form
+        const replyFormWrapper = document.createElement('div');
+        replyFormWrapper.style.cssText = 'margin-top:8px;padding:12px;background:#f5f8ff;border-radius:8px;border:1px solid rgba(18,18,161,0.1);';
+        
+        const replyInput = document.createElement('textarea');
+        replyInput.placeholder = '답글 내용을 입력하세요';
+        replyInput.style.cssText = 'width:100%;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:14px;font-family:inherit;margin-bottom:8px;';
+        replyInput.rows = 3;
+        
+        const secretCheckbox = document.createElement('input');
+        secretCheckbox.type = 'checkbox';
+        const secretLabel = document.createElement('label');
+        secretLabel.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:8px;';
+        secretLabel.appendChild(secretCheckbox);
+        secretLabel.append(' 비밀 답글');
+        
+        const submitBtn = document.createElement('button');
+        submitBtn.textContent = '답글 등록';
+        submitBtn.style.cssText = 'padding:8px 16px;background:var(--brand-blue);color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;margin-right:8px;';
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = '취소';
+        cancelBtn.style.cssText = 'padding:8px 16px;background:#ccc;color:#333;border:none;border-radius:4px;cursor:pointer;font-weight:600;';
+        
+        submitBtn.addEventListener('click', async ()=>{
+          if(!replyInput.value.trim()) return alert('답글 내용을 입력하세요');
+          const payload = { reply_content: replyInput.value, reply_is_secret: !!secretCheckbox.checked, password: pw };
+          const r = await fetch('/api/posts?action=reply&id=' + encodeURIComponent(post.id), { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+          if(!r.ok) return alert('답글 등록 실패');
+          alert('답글 등록됨'); replyFormWrapper.remove(); loadPosts(currentPage);
+        });
+        
+        cancelBtn.addEventListener('click', ()=>{
+          replyFormWrapper.remove();
+        });
+        
+        replyFormWrapper.appendChild(replyInput);
+        replyFormWrapper.appendChild(secretLabel);
+        replyFormWrapper.appendChild(submitBtn);
+        replyFormWrapper.appendChild(cancelBtn);
+        postEl.appendChild(replyFormWrapper);
       });
       buttonWrapper.appendChild(replyAdminBtn);
 
@@ -340,17 +375,12 @@
     }catch(err){ console.error(err); showFeedback('검증 중 오류가 발생했습니다', 'error'); }
   }
 
-  // admin login panel removed - all operations now use password directly
+  // admin panel - hidden, no password display
   function renderAdminPanel(){
     if(!paginationEl) return;
     let adminWrap = document.getElementById('admin-wrap');
     if(adminWrap) return;
-    adminWrap = document.createElement('div'); adminWrap.id='admin-wrap'; adminWrap.style.cssText='margin-left:16px;';
-    const info = document.createElement('span');
-    info.textContent = '삭제/답글: 비밀번호 0610';
-    info.style.cssText = 'color:var(--muted);font-size:13px;';
-    adminWrap.appendChild(info);
-    paginationEl.appendChild(adminWrap);
+    // No display needed - password handled inline per operation
   }
 
   // 페이지 로드 완료 후 초기 게시글 로드
