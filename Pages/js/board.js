@@ -188,24 +188,23 @@
       buttonWrapper.appendChild(delBtn);
       postEl.appendChild(buttonWrapper);
 
-      // Admin controls (login via localStorage token)
-      const adminToken = localStorage.getItem('adminToken');
-      if(adminToken){
-        const ctl = document.createElement('div'); ctl.style.cssText='margin-top:8px;display:flex;gap:8px';
-        // Reply form
-        const replyInput = document.createElement('input'); replyInput.placeholder='관리자 답글'; replyInput.style.width='240px';
-        const replySecret = document.createElement('input'); replySecret.type='checkbox';
-        const replySecretLabel = document.createElement('label'); replySecretLabel.appendChild(replySecret); replySecretLabel.append(' 비밀');
-        const replyBtn = document.createElement('button'); replyBtn.textContent='답글 등록';
-        replyBtn.addEventListener('click', async ()=>{
-          const payload = { reply_content: replyInput.value, reply_is_secret: !!replySecret.checked };
-          const r = await fetch('/api/posts/'+post.id+'/reply', { method: 'PATCH', headers: { 'Content-Type':'application/json', 'x-admin-token': adminToken }, body: JSON.stringify(payload) });
-          if(!r.ok) return alert('답글 등록 실패');
-          alert('답글 등록됨'); loadPosts(currentPage);
-        });
-        ctl.appendChild(replyInput); ctl.appendChild(replySecretLabel); ctl.appendChild(replyBtn);
-        postEl.appendChild(ctl);
-      }
+      // Admin reply button (password-based)
+      const replyAdminBtn = document.createElement('button');
+      replyAdminBtn.textContent = '답글';
+      replyAdminBtn.style.cssText = 'margin-top:8px;padding:6px 12px;background:var(--brand-blue);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;';
+      replyAdminBtn.addEventListener('click', async ()=>{
+        const pw = prompt('답글을 등록하려면 관리자 비밀번호를 입력하세요');
+        if(pw === null) return;
+        if(pw !== '0610') return alert('비밀번호가 틀렸습니다');
+        const replyContent = prompt('답글 내용을 입력하세요');
+        if(replyContent === null) return;
+        const isSecret = confirm('비밀 답글로 할까요? (확인: 비밀, 취소: 공개)');
+        const payload = { reply_content: replyContent, reply_is_secret: isSecret, password: pw };
+        const r = await fetch('/api/posts/'+post.id+'/reply', { method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(payload) });
+        if(!r.ok) return alert('답글 등록 실패');
+        alert('답글 등록됨'); loadPosts(currentPage);
+      });
+      buttonWrapper.appendChild(replyAdminBtn);
 
       boardContainer.appendChild(postEl);
     });
@@ -341,20 +340,16 @@
     }catch(err){ console.error(err); showFeedback('검증 중 오류가 발생했습니다', 'error'); }
   }
 
-  // admin login panel in pagination
+  // admin login panel removed - all operations now use password directly
   function renderAdminPanel(){
     if(!paginationEl) return;
     let adminWrap = document.getElementById('admin-wrap');
     if(adminWrap) return;
     adminWrap = document.createElement('div'); adminWrap.id='admin-wrap'; adminWrap.style.cssText='margin-left:16px;';
-    const btn = document.createElement('button');
-    const token = localStorage.getItem('adminToken');
-    btn.textContent = token ? '관리자 로그아웃' : '관리자 로그인';
-    btn.addEventListener('click', ()=>{
-      if(localStorage.getItem('adminToken')){ localStorage.removeItem('adminToken'); alert('로그아웃됨'); btn.textContent='관리자 로그인'; loadPosts(currentPage); return }
-      const t = prompt('관리자 토큰을 입력하세요'); if(!t) return; localStorage.setItem('adminToken', t); alert('관리자 로그인됨'); btn.textContent='관리자 로그아웃'; loadPosts(currentPage);
-    });
-    adminWrap.appendChild(btn);
+    const info = document.createElement('span');
+    info.textContent = '삭제/답글: 비밀번호 0610';
+    info.style.cssText = 'color:var(--muted);font-size:13px;';
+    adminWrap.appendChild(info);
     paginationEl.appendChild(adminWrap);
   }
 

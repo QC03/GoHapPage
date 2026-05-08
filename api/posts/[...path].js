@@ -47,12 +47,12 @@ async function handler(req, res) {
     }
 
     if (req.method === 'PATCH' && action === 'reply') {
-      const adminToken = req.headers['x-admin-token'];
-      if (!adminToken || adminToken !== '0610') {
-        return res.status(403).json({ error: 'admin required' });
+      const body = req.body || {};
+      const pw = body.password || '';
+      if (pw !== '0610') {
+        return res.status(403).json({ error: 'invalid password' });
       }
 
-      const body = req.body || {};
       const payload = {
         reply_content: body.reply_content || null,
         reply_is_secret: !!body.reply_is_secret

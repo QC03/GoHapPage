@@ -116,10 +116,10 @@ async function handler(req, res) {
 
     // Admin: add reply - PATCH /api/posts/:id/reply
     if(req.method === 'PATCH' && pathname.match(/^\/api\/posts\/\d+\/reply$/)){
-      const adminToken = req.headers['x-admin-token'] || req.headers['x-admin-token'.toLowerCase()];
-      if(!adminToken || adminToken !== '0610') return res.status(403).json({ error: 'admin required' });
       const id = pathname.split('/')[3];
       const body = req.body || {};
+      const pw = body.password || '';
+      if(pw !== '0610') return res.status(403).json({ error: 'invalid password' });
       const reply_content = body.reply_content || null;
       const reply_is_secret = !!body.reply_is_secret;
       const payload = { reply_content, reply_is_secret };
