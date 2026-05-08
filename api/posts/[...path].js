@@ -22,11 +22,11 @@ async function handler(req, res) {
   try {
     const urlPath = req.url || req.path || '';
     const pathname = urlPath.split('?')[0];
-    const pathSegments = Array.isArray(req.query.path)
-      ? req.query.path
-      : pathname.split('/').filter(Boolean).slice(2);
-    const id = pathSegments[0];
-    const action = pathSegments[1] || '';
+    
+    // Extract ID and action from pathname like /api/posts/5 or /api/posts/5/reply
+    const parts = pathname.split('/').filter(Boolean); // ['api', 'posts', '5'] or ['api', 'posts', '5', 'reply']
+    const id = parts[2]; // The ID is always at index 2
+    const action = parts[3] || ''; // The action (if any) is at index 3
 
     if (!id || !/^\d+$/.test(String(id))) {
       return res.status(400).json({ error: 'invalid post id' });
