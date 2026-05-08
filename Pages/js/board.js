@@ -179,7 +179,7 @@
         const pw = prompt('삭제하려면 관리자 비밀번호를 입력하세요');
         if(pw === null) return;
         if(pw !== '0610') return alert('비밀번호가 틀렸습니다');
-        const r = await fetch('/api/posts/'+post.id, { method: 'DELETE', headers: { 'x-admin-token': pw } });
+        const r = await fetch('/api/posts?action=delete&id=' + encodeURIComponent(post.id), { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ password: pw }) });
         if(!r.ok) return alert('삭제 실패');
         alert('삭제됨'); loadPosts(currentPage);
       });

@@ -67,18 +67,7 @@ async function handler(req, res) {
       return res.status(r.status).json(data);
     }
 
-    if (req.method === 'DELETE' && !action) {
-      const adminToken = req.headers['x-admin-token'];
-      if (!adminToken || adminToken !== '0610') {
-        return res.status(403).json({ error: 'admin required' });
-      }
-
-      const r = await fetch(`${restBase}?id=eq.${id}`, { method: 'DELETE', headers });
-      const data = await r.json();
-      return res.status(r.status).json(data);
-    }
-
-    res.setHeader('Allow', 'POST,PATCH,DELETE');
+    res.setHeader('Allow', 'POST,PATCH');
     return res.status(405).end('Method Not Allowed');
   } catch (err) {
     console.error(err);

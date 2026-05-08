@@ -76,6 +76,18 @@ async function handler(req, res) {
     }
 
     if(req.method === 'POST' && pathname === '/api/posts'){
+      // Check if this is a delete request
+      if((req.query && req.query.action) === 'delete' && (req.query && req.query.id)){
+        const id = String((req.query && req.query.id) || '');
+        const body = req.body || {};
+        const pw = body.password || '';
+        if(pw !== '0610') return res.status(403).json({ error: 'invalid password' });
+        const r = await fetch(`${restBase}?id=eq.${id}`, { method: 'DELETE', headers });
+        const data = await r.json();
+        return res.status(r.status).json(data);
+      }
+      
+      // Otherwise, handle as normal post creation
       let body = req.body;
       if(typeof body === 'string'){
         try{ body = JSON.parse(body); }catch(e){
