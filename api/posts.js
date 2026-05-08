@@ -104,7 +104,7 @@ async function handler(req, res) {
     // Admin: add reply - PATCH /api/posts/:id/reply
     if(req.method === 'PATCH' && pathname.match(/^\/api\/posts\/\d+\/reply$/)){
       const adminToken = req.headers['x-admin-token'] || req.headers['x-admin-token'.toLowerCase()];
-      if(!adminToken || adminToken !== process.env.SUPABASE_ADMIN_TOKEN) return res.status(403).json({ error: 'admin required' });
+      if(!adminToken || adminToken !== '0610') return res.status(403).json({ error: 'admin required' });
       const id = pathname.split('/')[3];
       const body = req.body || {};
       const reply_content = body.reply_content || null;
@@ -118,7 +118,7 @@ async function handler(req, res) {
     // Admin: delete post - DELETE /api/posts/:id
     if(req.method === 'DELETE' && pathname.match(/^\/api\/posts\/\d+$/)){
       const adminToken = req.headers['x-admin-token'] || req.headers['x-admin-token'.toLowerCase()];
-      if(!adminToken || adminToken !== process.env.SUPABASE_ADMIN_TOKEN) return res.status(403).json({ error: 'admin required' });
+      if(!adminToken || adminToken !== '0610') return res.status(403).json({ error: 'admin required' });
       const id = pathname.split('/')[3];
       const r = await fetch(`${restBase}?id=eq.${id}`, { method: 'DELETE', headers });
       const data = await r.json();
