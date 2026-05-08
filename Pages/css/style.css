@@ -50,10 +50,10 @@ body{font-family: 'Noto Sans KR', 'Montserrat', Arial, sans-serif;color:#172033;
 
 /* Map */
 .map-layout{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
-.map-column{flex:1 1 640px;min-width:300px;max-width:640px;overflow:hidden}
+.map-column{flex:0 1 400px;min-width:280px;max-width:400px;overflow:hidden;margin-right: 24px;}
 .guide-column{flex:1 1 280px;min-width:260px}
 .map-column .root_daum_roughmap,
-.map-column .wrap_map{width:100% !important;max-width:640px}
+.map-column .wrap_map{width:100% !important;max-width:400px}
 
 /* Timeline */
 .timeline{background:linear-gradient(180deg, #fbfdff 0%, #f1f6ff 100%);color:#172033;padding:40px 0;border-bottom:1px solid rgba(16,24,72,0.04)}

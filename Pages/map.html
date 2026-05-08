@@ -15,13 +15,13 @@
       <h2>오시는 길</h2>
       <div class="map-layout">
         <div class="map-column">
-          <div id="daumRoughmapContainer1778076921517" class="root_daum_roughmap root_daum_roughmap_landing"></div>
+          <div id="daumRoughmapContainer1778221280589" class="root_daum_roughmap root_daum_roughmap_landing"></div>
         </div>
         <div class="guide-column">
           <h3>교통 안내</h3>
-          <p><strong>차량 이용시:</strong> (간단 경로 안내)</p>
-          <p><strong>대중교통:</strong> (정류장/역 정보)</p>
-          <p><strong>도보:</strong> (간단 설명)</p>
+          <p><strong>차량 이용시:</strong> 네비게이션에 "전북 군산시 동정1길 23" 검색 후 방문</p>
+          <p><strong>대중교통:</strong> 버스 탑승 후 "개정파출소 정류장" 하차</p>
+          <p><strong>도보:</strong> 큰 길에서 개정초등학교 정문 앞 도로를 따라오면 좌측에 위치해 있습니다.</p>
         </div>
       </div>
     </section>
@@ -38,13 +38,13 @@
       }
 
       var mapColumn = document.querySelector('.map-column');
-      var mapWidth = mapColumn ? Math.min(640, Math.floor(mapColumn.clientWidth)) : 640;
+      var mapWidth = mapColumn ? Math.min(400, Math.floor(mapColumn.clientWidth)) : 400;
 
       new daum.roughmap.Lander({
-        "timestamp" : "1778076921517",
-        "key" : "2ordm5m9xhjc",
+        "timestamp" : "1778221280589",
+        "key" : "2ouh9b79dp8c",
         "mapWidth" : String(mapWidth),
-        "mapHeight" : "360"
+        "mapHeight" : "310"
       }).render();
     });
   </script>

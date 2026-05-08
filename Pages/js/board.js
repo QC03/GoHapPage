@@ -63,7 +63,7 @@
     paginationEl.innerHTML = '';
     const prevBtn = document.createElement('button'); prevBtn.textContent = '◀ 이전'; prevBtn.disabled = currentPage <= 1;
     const nextBtn = document.createElement('button'); nextBtn.textContent = '다음 ▶'; nextBtn.disabled = !hasNext;
-    const pageLabel = document.createElement('span'); pageLabel.textContent = `페이지 ${currentPage}`;
+    const pageLabel = document.createElement('span'); pageLabel.textContent = `${currentPage}`;
     prevBtn.addEventListener('click', ()=> loadPosts(currentPage-1));
     nextBtn.addEventListener('click', ()=> loadPosts(currentPage+1));
     paginationEl.appendChild(prevBtn);
