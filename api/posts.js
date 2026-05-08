@@ -29,15 +29,15 @@ async function handler(req, res) {
       const page = parseInt((req.query && req.query.page) || (req.query && req.query.p) || 1, 10) || 1;
       const limit = 5;
       const offset = (page - 1) * limit;
-      const selectCols = 'id,author,created_at,is_secret,reply_content,reply_is_secret';
+      const selectCols = 'id,author,content,created_at,is_secret,reply_content,reply_is_secret';
       const url = `${restBase}?select=${encodeURIComponent(selectCols)}&order=created_at.desc&limit=${limit}&offset=${offset}`;
 
       // Try primary query; if Supabase returns 400 (likely missing columns), try fallback minimal selects.
       let r = await fetch(url, { headers });
       if(r.status === 400){
         const fallbacks = [
-          'id,author,created_at,is_secret',
-          'id,author,created_at'
+          'id,author,content,created_at,is_secret',
+          'id,author,content,created_at'
         ];
         for(const cols of fallbacks){
           const tryUrl = `${restBase}?select=${encodeURIComponent(cols)}&order=created_at.desc&limit=${limit}&offset=${offset}`;
