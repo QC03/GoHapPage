@@ -245,7 +245,7 @@
     const pw = prompt('비밀번호를 입력하세요');
     if(pw === null) return;
     try{
-      const r = await fetch('/api/posts/' + id + '/verify', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password: pw }) });
+      const r = await fetch('/api/posts?action=verify&id=' + encodeURIComponent(id), { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password: pw }) });
       if(!r.ok){ const e = await r.json().catch(()=>({})); return alert(e.error || '비밀번호가 틀립니다'); }
       const data = await r.json();
       contentArea.innerHTML = sanitizeHtml(data.content || '');

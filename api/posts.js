@@ -56,9 +56,12 @@ async function handler(req, res) {
       return res.status(r.status).json(data);
     }
 
-    // Verify secret post and fetch content: POST /api/posts/:id/verify  { password }
-    if(req.method === 'POST' && pathname.match(/^\/api\/posts\/\d+\/verify$/)){
-      const id = pathname.split('/')[3];
+    // Verify secret post and fetch content.
+    // Supports both POST /api/posts/:id/verify and POST /api/posts?action=verify&id=:id
+    if(req.method === 'POST' && (pathname.match(/^\/api\/posts\/\d+\/verify$/) || (pathname === '/api/posts' && ((req.query && req.query.action) === 'verify' || (req.query && req.query.verify === '1'))))){
+      const id = pathname.match(/^\/api\/posts\/\d+\/verify$/)
+        ? pathname.split('/')[3]
+        : String((req.query && req.query.id) || '');
       const body = req.body || {};
       const pw = body.password || '';
       // fetch post
