@@ -140,7 +140,12 @@
         viewBtn.addEventListener('click', ()=> verifyAndShow(post.id, contentArea, post));
         contentArea.appendChild(viewBtn);
       } else {
-        contentArea.innerHTML = content;
+        const maxLen = 100;
+        let displayContent = content;
+        if(content.length > maxLen) {
+          displayContent = content.substring(0, maxLen) + '...';
+        }
+        contentArea.textContent = displayContent;
       }
 
       postEl.appendChild(contentArea);
@@ -166,6 +171,23 @@
         postEl.appendChild(replyEl);
       }
 
+      // Delete button (with admin password)
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '삭제';
+      delBtn.style.cssText = 'margin-top:8px;padding:6px 12px;background:#dc3545;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:600;';
+      delBtn.addEventListener('click', async ()=>{
+        const pw = prompt('삭제하려면 관리자 비밀번호를 입력하세요');
+        if(pw === null) return;
+        if(pw !== '0610') return alert('비밀번호가 틀렸습니다');
+        const r = await fetch('/api/posts/'+post.id, { method: 'DELETE', headers: { 'x-admin-token': pw } });
+        if(!r.ok) return alert('삭제 실패');
+        alert('삭제됨'); loadPosts(currentPage);
+      });
+      const buttonWrapper = document.createElement('div');
+      buttonWrapper.style.cssText = 'display:flex;gap:8px;';
+      buttonWrapper.appendChild(delBtn);
+      postEl.appendChild(buttonWrapper);
+
       // Admin controls (login via localStorage token)
       const adminToken = localStorage.getItem('adminToken');
       if(adminToken){
@@ -181,13 +203,7 @@
           if(!r.ok) return alert('답글 등록 실패');
           alert('답글 등록됨'); loadPosts(currentPage);
         });
-        const delBtn = document.createElement('button'); delBtn.textContent='삭제'; delBtn.addEventListener('click', async ()=>{
-          if(!confirm('정말 삭제할까요?')) return;
-          const r = await fetch('/api/posts/'+post.id, { method: 'DELETE', headers: { 'x-admin-token': adminToken } });
-          if(!r.ok) return alert('삭제 실패');
-          alert('삭제됨'); loadPosts(currentPage);
-        });
-        ctl.appendChild(replyInput); ctl.appendChild(replySecretLabel); ctl.appendChild(replyBtn); ctl.appendChild(delBtn);
+        ctl.appendChild(replyInput); ctl.appendChild(replySecretLabel); ctl.appendChild(replyBtn);
         postEl.appendChild(ctl);
       }
 
