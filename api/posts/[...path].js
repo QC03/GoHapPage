@@ -48,7 +48,7 @@ async function handler(req, res) {
 
     if (req.method === 'PATCH' && action === 'reply') {
       const adminToken = req.headers['x-admin-token'];
-      if (!adminToken || adminToken !== process.env.SUPABASE_ADMIN_TOKEN) {
+      if (!adminToken || adminToken !== '0610') {
         return res.status(403).json({ error: 'admin required' });
       }
 
@@ -69,7 +69,7 @@ async function handler(req, res) {
 
     if (req.method === 'DELETE' && !action) {
       const adminToken = req.headers['x-admin-token'];
-      if (!adminToken || adminToken !== process.env.SUPABASE_ADMIN_TOKEN) {
+      if (!adminToken || adminToken !== '0610') {
         return res.status(403).json({ error: 'admin required' });
       }
 
